@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NC Legislation Tracker — Inspections & Permits</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#182430;
+  --ink-soft:#4a5a68;
+  --ink-faint:#8395a3;
+  --paper:#eef1f0;
+  --card:#ffffff;
+  --line:#d5dcda;
+  --ncblue:#1f4e8c;
+  --ncblue-deep:#163a6b;
+  --enact:#1e7a46;
+  --enact-bg:#e3f2e9;
+  --orange:#e8590c;
+  --orange-bright:#ff7a1a;
+  --orange-bg:#fdeadd;
+  --stall:#8d2f28;
+  --stall-bg:#f6e8e6;
+  --neutral-bg:#e9edf2;
+  --teal:#0f6b6b;
+  --teal-bg:#e0efef;
+  --serif:'IBM Plex Serif',Georgia,serif;
+  --sans:'IBM Plex Sans',-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono','SF Mono',Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+button{font-family:inherit;cursor:pointer}
+a{color:var(--ncblue)}
+
+/* ---------- header ---------- */
+header{background:var(--ncblue-deep);color:#fff;border-bottom:4px solid var(--orange-bright)}
+.head-inner{max-width:1180px;margin:0 auto;padding:26px 24px 22px;display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;justify-content:space-between}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#a8c2e4;margin-bottom:6px}
+h1{font-family:var(--serif);font-weight:600;font-size:30px;line-height:1.15;letter-spacing:-.01em}
+h1 .amp{color:var(--orange-bright);font-style:italic}
+.head-meta{text-align:right;font-size:12.5px;color:#b9cbe2}
+.head-meta .src a{color:#dce8f7}
+.refresh-row{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:8px}
+#lastRefreshed{font-family:var(--mono);font-size:11.5px}
+.btn{border:1px solid transparent;border-radius:6px;padding:8px 16px;font-size:13.5px;font-weight:600;transition:background .15s,transform .1s}
+.btn:active{transform:translateY(1px)}
+.btn-gold{background:var(--orange-bright);color:#fff}
+.btn-gold:hover{background:var(--orange)}
+.btn-gold[disabled]{opacity:.55;cursor:default}
+
+/* ---------- stale banner ---------- */
+#staleBanner{display:none;background:var(--orange-bg);border-bottom:1px solid #f3c39e;color:#8a3d08;font-size:13.5px;padding:10px 24px;text-align:center}
+#staleBanner b{font-weight:600}
+#staleBanner button{margin-left:10px;padding:4px 12px;font-size:12.5px}
+.btn-small-gold{background:var(--orange);color:#fff;border:none;border-radius:5px;font-weight:600}
+.btn-small-plain{background:transparent;border:1px solid #eba36b;border-radius:5px;color:#8a3d08}
+
+/* ---------- progress ---------- */
+#progressWrap{display:none;background:#fff;border-bottom:1px solid var(--line);padding:12px 24px}
+.prog-inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:14px;font-size:13px;color:var(--ink-soft)}
+.prog-bar{flex:1;height:8px;background:var(--neutral-bg);border-radius:4px;overflow:hidden}
+.prog-fill{height:100%;width:0%;background:var(--ncblue);border-radius:4px;transition:width .4s}
+#progCancel{font-size:12px;padding:4px 10px;background:none;border:1px solid var(--line);border-radius:5px;color:var(--ink-soft)}
+
+/* ---------- stats ---------- */
+.stats{max-width:1180px;margin:22px auto 0;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px 12px;cursor:pointer;transition:border-color .15s,box-shadow .15s;border-top:3px solid var(--ink-faint)}
+.stat:hover{box-shadow:0 2px 8px rgba(24,36,48,.08)}
+.stat.active{border-color:var(--ncblue);box-shadow:0 0 0 2px rgba(31,78,140,.18)}
+.stat .num{font-family:var(--serif);font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat .lbl{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);margin-top:5px;font-weight:600}
+.stat.s-all{border-top-color:var(--ink)}
+.stat.s-law{border-top-color:var(--enact)}.stat.s-law .num{color:var(--enact)}
+.stat.s-active{border-top-color:var(--ncblue)}.stat.s-active .num{color:var(--ncblue)}
+.stat.s-stalled{border-top-color:var(--stall)}.stat.s-stalled .num{color:var(--stall)}
+.stat.s-recent{border-top-color:var(--orange-bright)}.stat.s-recent .num{color:var(--orange)}
+
+/* ---------- filter bar ---------- */
+.filters{max-width:1180px;margin:18px auto 0;padding:0 24px}
+.filter-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+#search{flex:1;min-width:220px;padding:9px 13px;border:1px solid var(--line);border-radius:7px;font-size:14px;font-family:var(--sans);background:var(--card);color:var(--ink)}
+#search:focus{outline:2px solid var(--ncblue);outline-offset:-1px}
+select{padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--card);font-size:13.5px;color:var(--ink);font-family:var(--sans)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink-soft);border-radius:100px;padding:5px 13px;font-size:12.5px;font-weight:500;transition:all .12s}
+.chip:hover{border-color:var(--ncblue);color:var(--ncblue)}
+.chip.on{background:var(--ncblue);border-color:var(--ncblue);color:#fff}
+.chip .ct{opacity:.65;font-family:var(--mono);font-size:11px;margin-left:4px}
+.chip-all{border-style:dashed;font-weight:600;color:var(--ncblue)}
+.chip-all:hover{background:#eef3fa}
+#clearFilters{display:none;background:none;border:none;color:var(--stall);font-size:12.5px;font-weight:600;text-decoration:underline;padding:5px 4px}
+.result-line{max-width:1180px;margin:16px auto 0;padding:0 24px;font-size:12.5px;color:var(--ink-faint);display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px}
+.kt-legend{display:inline-flex;align-items:center;gap:5px}
+.kt-legend::before{content:'';width:7px;height:7px;border-radius:2px;background:var(--orange-bright);display:inline-block}
+
+/* ---------- cards ---------- */
+.grid{max-width:1180px;margin:10px auto 60px;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:16px 18px 14px;display:flex;flex-direction:column;gap:10px;position:relative}
+.card.recent-glow{border-color:#f7b183;box-shadow:0 0 0 1px #fbc9a3,0 3px 10px rgba(232,89,12,.14)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.bill-id{font-family:var(--mono);font-weight:600;font-size:17px;letter-spacing:.02em}
+.bill-id a{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--ink-faint)}
+.bill-id a:hover{color:var(--ncblue);border-bottom-color:var(--ncblue)}
+.chamber-tag{font-family:var(--mono);font-size:10px;color:var(--ink-faint);letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:2px}
+.pill{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:5px;padding:4px 9px;white-space:nowrap}
+.pill.law{background:var(--enact-bg);color:var(--enact)}
+.pill.passed_both{background:var(--teal-bg);color:var(--teal)}
+.pill.passed_house,.pill.passed_senate{background:#e2ebf7;color:var(--ncblue)}
+.pill.committee{background:var(--orange-bg);color:var(--orange)}
+.pill.filed{background:var(--neutral-bg);color:var(--ink-soft)}
+.pill.stalled{background:var(--stall-bg);color:var(--stall)}
+.pill.vetoed,.pill.failed{background:var(--stall-bg);color:var(--stall)}
+.new-flag{position:absolute;top:-9px;right:14px;background:var(--orange-bright);color:#fff;font-size:10px;font-weight:700;letter-spacing:.09em;padding:3px 9px;border-radius:4px;text-transform:uppercase}
+.new-flag::before{content:'';display:inline-block;width:6px;height:6px;background:#fff;border-radius:50%;margin-right:5px;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.card h3{font-family:var(--serif);font-size:16px;font-weight:600;line-height:1.3}
+.kt{list-style:none;display:flex;flex-direction:column;gap:5px}
+.kt li{font-size:12.5px;color:var(--ink-soft);line-height:1.45;padding-left:16px;position:relative}
+.kt li::before{content:'';position:absolute;left:2px;top:7px;width:7px;height:7px;border-radius:2px;background:var(--ink-faint)}
+.kt li.p1{color:var(--ink)}
+.kt li.p1::before{background:var(--orange-bright)}
+.kt li.hidden-bullet{display:none}
+.kt-more{background:none;border:none;color:var(--ncblue);font-size:11.5px;font-weight:600;padding:2px 0 0 16px;text-align:left}
+.kt-more:hover{text-decoration:underline}
+
+/* pipeline */
+.pipe{display:flex;align-items:center;margin:2px 0}
+.pipe .node{width:11px;height:11px;border-radius:50%;background:var(--card);border:2px solid var(--line);flex-shrink:0;position:relative}
+.pipe .seg{flex:1;height:2px;background:var(--line)}
+.pipe .node.done{background:var(--ncblue);border-color:var(--ncblue)}
+.pipe .seg.done{background:var(--ncblue)}
+.pipe .node.law-done{background:var(--enact);border-color:var(--enact)}
+.pipe .node.dead{background:var(--stall);border-color:var(--stall)}
+.pipe-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
+
+/* meta */
+.meta{border-top:1px solid var(--line);padding-top:10px;margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.last-action{font-size:11.5px;color:var(--ink-soft);line-height:1.45;flex:1}
+.act-label{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:1px}
+.act-date{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px;display:inline-block;background:#fff9c2;padding:1px 7px;border-radius:4px;box-decoration-break:clone}
+.act-date.hot{color:var(--orange);background:#fff3a8}
+.last-action b{font-weight:600;color:var(--ink)}
+.la-date{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint)}
+.days-box{text-align:right;flex-shrink:0}
+.days-num{font-family:var(--serif);font-size:24px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.days-num.hot{color:var(--orange)}
+.days-lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);font-weight:600}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tag{font-size:10.5px;background:var(--neutral-bg);color:var(--ink-soft);border-radius:4px;padding:2px 8px;font-weight:500}
+.card-foot{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink-faint)}
+.card-foot a{font-weight:600;text-decoration:none}
+.card-foot a:hover{text-decoration:underline}
+.recheck{background:none;border:none;color:var(--ink-faint);font-size:11px;padding:2px 4px;border-radius:4px}
+.recheck:hover{color:var(--ncblue);background:var(--neutral-bg)}
+.sl-chip{font-family:var(--mono);font-size:10.5px;color:var(--enact);font-weight:600}
+.disc-chip{font-family:var(--mono);font-size:10px;color:var(--teal);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--ink-faint)}
+.empty .big{font-family:var(--serif);font-size:20px;color:var(--ink-soft);margin-bottom:6px}
+footer{border-top:1px solid var(--line);padding:18px 24px 30px;text-align:center;font-size:11.5px;color:var(--ink-faint)}
+footer a{color:var(--ink-soft)}
+@media(max-width:640px){
+  .head-inner{padding:20px 16px 16px}
+  h1{font-size:23px}
+  .head-meta{text-align:left}
+  .refresh-row{justify-content:flex-start}
+  .grid,.stats,.filters,.result-line{padding-left:16px;padding-right:16px}
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-inner">
+    <div>
+      <div class="eyebrow">2025–2026 Session &middot; NC General Assembly</div>
+      <h1>NC Legislation Tracker<br>Building Permits <span class="amp">&amp;</span> Inspections</h1>
+    </div>
+    <div class="head-meta">
+      <div class="src">Source: <a href="https://www.ncleg.gov/Legislation" target="_blank" rel="noopener">ncleg.gov/Legislation</a></div>
+      <div class="refresh-row">
+        <span id="lastRefreshed">Loading latest feed…</span>
+        <button class="btn btn-gold" id="refreshBtn">Refresh</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div id="staleBanner">
+  <b id="staleHead">Status data may be out of date.</b> <span id="staleMsg"></span>
+  <button class="btn-small-gold" id="staleRefresh">Refresh now</button>
+  <button class="btn-small-plain" id="staleDismiss">Not now</button>
+</div>
+
+<div id="progressWrap">
+  <div class="prog-inner">
+    <span id="progText">Checking bills…</span>
+    <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+    <button id="progCancel">Cancel</button>
+  </div>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="filters">
+  <div class="filter-row">
+    <input id="search" type="search" placeholder="Search bill number, title, or summary text…" aria-label="Search bills">
+    <select id="windowSel" aria-label="Activity timeframe">
+      <option value="">Activity: any time</option>
+      <option value="7">Activity: last 7 days</option>
+      <option value="30">Activity: last 30 days</option>
+      <option value="90">Activity: last 90 days</option>
+      <option value="180">Activity: last 6 months</option>
+      <option value="365">Activity: last 12 months</option>
+    </select>
+    <select id="chamberSel" aria-label="Chamber">
+      <option value="">Both chambers</option>
+      <option value="House">House</option>
+      <option value="Senate">Senate</option>
+    </select>
+    <select id="sortSel" aria-label="Sort order">
+      <option value="activity">Sort: recent activity</option>
+      <option value="number">Sort: bill number</option>
+      <option value="stage">Sort: furthest along</option>
+      <option value="introduced">Sort: date introduced</option>
+    </select>
+  </div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<div class="result-line">
+  <span id="resultCount"></span>
+  <span class="kt-legend">code / permit / licensing priority</span>
+  <button id="clearFilters">Clear all filters</button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<footer>
+  This tracker reads a <code>feed.json</code> file that a scheduled job rebuilds automatically from
+  <a href="https://www.ncleg.gov/Legislation" target="_blank" rel="noopener">ncleg.gov</a> — so the data refreshes on its own,
+  no action needed. Press <b>Refresh</b> to pull the newest available update. If ncleg.gov is briefly unreachable when the
+  scheduled job runs, the previous data stays in place and the next run catches up.<br>
+  <span style="opacity:.8">Share this by sending the page's web address — anyone with the link sees the same live data, no setup required. Verify anything decision-critical against the official bill page.</span>
+  <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--line);opacity:.9">
+    Created and maintained by <b>Bryan Webb</b> ·
+    <a href="mailto:bryan.webb@carync.gov">bryan.webb@carync.gov</a>
+  </div>
+</footer>
+
+<script>
+
+/* ================= STATE ================= */
+const STORE_KEY = 'ncleg-ip-tracker-v2';
+let live = { lastRefresh: null, bills: {}, discovered: [] };
+let filters = { search:'', chamber:'', tags:new Set(), quick:'all', sort:'activity', window:'' };
+let cancelRefresh = false;
+let refreshing = false;
+
+const PRIORITY_TAGS = ['Building Code','Permits & Approvals','Licensing & Qualifications','Inspections & Enforcement','Local Gov. Authority'];
+const TAG_VOCAB = PRIORITY_TAGS.concat(['Land Development','Zoning & Land Use','Housing & ADUs','Disaster Recovery','Fire / OSFM','Stormwater & Environment','Utilities & Infrastructure','Child Care Facilities','Firearms-Related','Budget / Appropriations']);
+
+const STAGE_LABEL = {
+  law:'Enacted', vetoed:'Vetoed', failed:'Failed',
+  passed_both:'Passed Both', passed_house:'Passed House', passed_senate:'Passed Senate',
+  committee:'In Committee', filed:'Filed', stalled:'Missed Crossover'
+};
+const STAGE_RANK = { law:8, vetoed:7, passed_both:6, passed_house:5, passed_senate:5, committee:4, filed:3, stalled:1, failed:0 };
+const ACTIVE_STAGES = new Set(['passed_both','passed_house','passed_senate','committee','filed']);
+
+/* ================= HELPERS ================= */
+const $ = s => document.querySelector(s);
+function allBills(){ return live.discovered || []; }
+function billView(b){
+  const lv = live.bills[b.id] || {};
+  return {
+    ...b,
+    stage: lv.stage || b.stage,
+    sessionLaw: lv.sessionLaw || b.sessionLaw,
+    lastAction: lv.lastAction || b.lastAction || null,
+    lastActionDate: lv.lastActionDate || b.lastActionDate || null,
+    checkedAt: lv.checkedAt || b.checkedAt || null
+  };
+}
+function effDate(v){ return v.lastActionDate || v.introduced; }
+function daysSince(iso){
+  if(!iso) return null;
+  const d = new Date(iso + 'T12:00:00');
+  if(isNaN(d)) return null;
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+}
+function isRecent(v){ const d = daysSince(v.lastActionDate); return d !== null && d <= 7; }
+function fmtDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso + 'T12:00:00');
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+}
+function billUrl(id){ return 'https://www.ncleg.gov/BillLookUp/2025/' + id; }
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function extractJson(data){
+  const text = (data.content||[]).filter(i=>i.type==='text').map(i=>i.text).join('\n');
+  const m = text.match(/\[[\s\S]*\]/);
+  if(!m) throw new Error('No JSON in response');
+  return JSON.parse(m[0]);
+}
+async function callClaude(prompt){
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-6',
+      max_tokens:1000,
+      messages:[{role:'user',content:prompt}],
+      tools:[{type:'web_search_20250305',name:'web_search'}]
+    })
+  });
+  if(!response.ok) throw new Error('API ' + response.status);
+  return extractJson(await response.json());
+}
+
+/* ================= STORAGE ================= */
+/* Storage works both inside the Claude artifact runtime (window.storage) and when
+   hosted on GitHub Pages / opened as a file (falls back to localStorage). */
+const HOSTED = typeof window.storage === 'undefined';
+async function storeGet(key){
+  if(!HOSTED){ try{ return await window.storage.get(key); }catch(e){ return null; } }
+  try{ const v = localStorage.getItem(key); return v==null ? null : { key, value:v }; }catch(e){ return null; }
+}
+async function storeSet(key, value){
+  if(!HOSTED){ try{ return await window.storage.set(key, value); }catch(e){ return null; } }
+  try{ localStorage.setItem(key, value); }catch(e){}
+  return { key, value };
+}
+async function loadStore(){
+  try{
+    const r = await storeGet(STORE_KEY);
+    if(r && r.value){
+      const saved = JSON.parse(r.value);
+      live = { lastRefresh: saved.lastRefresh || null, bills: saved.bills || {}, discovered: saved.discovered || [] };
+    }
+  }catch(e){ /* first run */ }
+}
+async function saveStore(){
+  try{ await storeSet(STORE_KEY, JSON.stringify(live)); }
+  catch(e){ console.error('Save failed', e); }
+}
+
+/* ================= HOSTED FEED (feed.json written by the scheduled GitHub Action) ================= */
+function normalizeFeedBill(r){
+  if(!r || !r.id) return null;
+  const id = String(r.id).toUpperCase().replace(/[^HS0-9]/g,'');
+  if(!/^[HS]\d+$/.test(id)) return null;
+  let tags = Array.isArray(r.tags) ? r.tags.filter(t=>TAG_VOCAB.includes(t)) : [];
+  if(r.firearms) tags = ['Firearms-Related'];
+  if(!tags.length) tags = ['Land Development'];
+  return {
+    id,
+    chamber: r.chamber==='Senate' ? 'Senate' : 'House',
+    raw: id,
+    introduced: /^\d{4}-\d{2}-\d{2}$/.test(r.introduced||'') ? r.introduced : null,
+    title: String(r.title||id),
+    summary: String(r.summary||r.title||''),
+    sessionLaw: r.sessionLaw && r.sessionLaw!=='null' ? r.sessionLaw : null,
+    stage: STAGE_LABEL[r.stage] ? r.stage : 'filed',
+    crossover: null,
+    tags,
+    bullets: (Array.isArray(r.bullets)?r.bullets:[]).slice(0,10)
+      .map(x=>({t:String(x.t||''),p:x.p===1?1:2})).filter(x=>x.t),
+    firearms: !!r.firearms,
+    discovered: true,
+    lastAction: r.lastAction || null,
+    lastActionDate: /^\d{4}-\d{2}-\d{2}$/.test(r.lastActionDate||'') ? r.lastActionDate : null,
+    checkedAt: r.checkedAt || new Date().toISOString()
+  };
+}
+async function loadHostedFeed(){
+  // Same-origin fetch of feed.json — always allowed, no CORS issue.
+  const res = await fetch('feed.json?t=' + Date.now(), { cache:'no-store' });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const payload = await res.json();
+  const arr = Array.isArray(payload) ? payload : (payload.bills || []);
+  const bills = arr.map(normalizeFeedBill).filter(Boolean);
+  if(!bills.length) throw new Error('feed empty');
+  live.discovered = bills;
+  live.bills = {};   // feed carries the latest; clear stale overlays
+  live.lastRefresh = payload.generatedAt ? new Date(payload.generatedAt).toISOString() : new Date().toISOString();
+  await saveStore();
+  return { count: bills.length, generatedAt: payload.generatedAt || null };
+}
+
+/* ================= STATUS REFRESH ================= */
+async function checkBatch(batch){
+  const listing = batch.map(b => `${b.id} — "${b.title}"`).join('\n');
+  const prompt = `Search ncleg.gov (North Carolina General Assembly) for the CURRENT status of these NC bills from the 2025-2026 session. I need the most recent action for each as of today.
+
+${listing}
+
+For each bill find: (1) its most recent legislative action and the date of that action, (2) whether it has become session law (chapter number like "2025-50"), was vetoed, or where it currently sits.
+
+Respond with ONLY a raw JSON array, no markdown fences, no commentary:
+[{"id":"H661","lastAction":"short description of most recent action","lastActionDate":"YYYY-MM-DD","stage":"law|vetoed|passed_both|passed_house|passed_senate|committee|filed|stalled|failed","sessionLaw":"2025-50 or null"}]
+
+Rules: "stage" must be exactly one of the listed values. Use "law" only if chaptered as session law. Use "stalled" if it missed crossover and is ineligible. If you cannot verify a bill, include it with "lastAction":"unverified" and keep other fields null.`;
+  return callClaude(prompt);
+}
+
+/* ================= NEW-BILL DISCOVERY ================= */
+async function discoverNewBills(){
+  const known = allBills().map(b=>b.id).join(', ') || '(none yet)';
+  const prompt = `Search ncleg.gov (North Carolina General Assembly, 2025-2026 session) for bills related to any of: building codes, building permits, building inspections, code-enforcement officials, contractor licensing or qualifications, development regulation, zoning, fire code / State Fire Marshal, or stormwater. Prioritize bills with the MOST RECENT activity. Do NOT repeat any bill already in this list:
+${known}
+
+Return up to 8 relevant bills as ONLY a raw JSON array (no markdown, no commentary; return [] if none found):
+[{"id":"H1234","chamber":"House","title":"Short Title.","introduced":"YYYY-MM-DD","bullets":[{"t":"key provision in plain language","p":1}],"tags":["Building Code"],"lastAction":"most recent action","lastActionDate":"YYYY-MM-DD","stage":"filed","sessionLaw":null,"firearms":false}]
+
+Rules: 2-4 bullets per bill; p=1 only for building code / permit / inspection / licensing provisions, else p=2. "tags" must come from this list only: ${TAG_VOCAB.join('; ')}. "stage" must be one of: law, vetoed, passed_both, passed_house, passed_senate, committee, filed, stalled, failed. "firearms" true only for gun/firearms-business legislation. Only include bills you actually verified on ncleg.gov.`;
+  const results = await callClaude(prompt);
+  let added = 0;
+  const now = new Date().toISOString();
+  for(const r of (results||[])){
+    if(!r || !r.id || !r.title) continue;
+    const id = String(r.id).toUpperCase().replace(/[^HS0-9]/g,'');
+    if(!/^[HS]\d+$/.test(id)) continue;
+    if(allBills().some(b=>b.id===id)) continue;
+    live.discovered.push({
+      id,
+      chamber: r.chamber==='Senate' ? 'Senate' : 'House',
+      raw: id + ' (live scan)',
+      introduced: /^\d{4}-\d{2}-\d{2}$/.test(r.introduced||'') ? r.introduced : null,
+      title: String(r.title),
+      summary: String(r.title),
+      sessionLaw: r.sessionLaw && r.sessionLaw !== 'null' ? r.sessionLaw : null,
+      stage: STAGE_LABEL[r.stage] ? r.stage : 'filed',
+      crossover: null,
+      tags: Array.isArray(r.tags) ? r.tags.filter(t=>TAG_VOCAB.includes(t)) : [],
+      bullets: (Array.isArray(r.bullets) ? r.bullets : []).slice(0,10)
+        .map(x=>({ t:String(x.t||''), p: x.p===1 ? 1 : 2 })).filter(x=>x.t),
+      firearms: !!r.firearms,
+      discovered: true,
+      lastAction: r.lastAction || null,
+      lastActionDate: /^\d{4}-\d{2}-\d{2}$/.test(r.lastActionDate||'') ? r.lastActionDate : null,
+      checkedAt: now
+    });
+    added++;
+  }
+  const d = live.discovered;
+  d.forEach(b=>{
+    if(b.firearms && !(b.tags||[]).includes('Firearms-Related')) b.tags = ['Firearms-Related'];
+    if(!b.tags || !b.tags.length) b.tags = ['Land Development'];
+  });
+  return added;
+}
+
+/* ================= REFRESH ORCHESTRATION ================= */
+const CONN_MSG = 'Connection to ncleg.gov may be limited during high volume periods, please refresh periodically to get an updated feed.';
+
+async function refreshBills(subset){
+  if(refreshing) return;
+  refreshing = true; cancelRefresh = false;
+  const fullRun = !subset;
+  $('#progressWrap').style.display='block';
+  $('#refreshBtn').disabled = true;
+  $('#staleBanner').style.display='none';
+  $('#progFill').style.width='0%';
+
+  let updated = 0, failed = 0, found = 0, discoveryErrored = false;
+
+  // Step 1 (full runs only): scan ncleg.gov for matching bills to build/extend the feed
+  if(fullRun){
+    $('#progText').textContent = 'Scanning ncleg.gov for bills in your topic areas…';
+    try{
+      found = await discoverNewBills();
+      if(found){ await saveStore(); render(); }
+    }catch(e){ console.error('Discovery failed', e); discoveryErrored = true; }
+    $('#progFill').style.width = '10%';
+  }
+
+  // Step 2: status check on everything currently in the feed
+  const bills = subset || allBills();
+  const BATCH = 4;
+  const total = bills.length;
+  for(let i=0; i<bills.length; i+=BATCH){
+    if(cancelRefresh) break;
+    const batch = bills.slice(i, i+BATCH);
+    $('#progText').textContent = `Checking statuses on ncleg.gov — bill ${i+1}${total>1?'–'+Math.min(i+BATCH,total):''} of ${total}…`;
+    try{
+      const results = await checkBatch(batch);
+      const now = new Date().toISOString();
+      for(const r of (results||[])){
+        if(!r || !r.id) continue;
+        const id = String(r.id).toUpperCase().replace(/\s/g,'');
+        if(!allBills().some(b=>b.id===id)) continue;
+        if(r.lastAction === 'unverified'){ failed++; continue; }
+        live.bills[id] = {
+          lastAction: r.lastAction || null,
+          lastActionDate: /^\d{4}-\d{2}-\d{2}$/.test(r.lastActionDate||'') ? r.lastActionDate : null,
+          stage: STAGE_LABEL[r.stage] ? r.stage : undefined,
+          sessionLaw: r.sessionLaw && r.sessionLaw !== 'null' ? r.sessionLaw : null,
+          checkedAt: now
+        };
+        updated++;
+      }
+      await saveStore();
+      render();
+    }catch(e){
+      console.error('Batch failed', e);
+      failed += batch.length;
+    }
+    const done = Math.min(i+BATCH, total);
+    $('#progFill').style.width = Math.round(10 + done/Math.max(total,1)*90) + '%';
+  }
+
+  const gotData = updated > 0 || found > 0;
+  if(fullRun && !cancelRefresh && gotData){
+    live.lastRefresh = new Date().toISOString();
+    await saveStore();
+  }
+  refreshing = false;
+  $('#refreshBtn').disabled = false;
+  $('#progressWrap').style.display='none';
+  $('#progFill').style.width='0%';
+
+  // Outcome reporting
+  if(!cancelRefresh){
+    const connFailed = (fullRun && found === 0 && updated === 0) || (discoveryErrored && updated === 0);
+    if(connFailed){
+      // The message you asked for whenever a reliable feed can't be retrieved
+      $('#staleHead').textContent = '';
+      $('#staleMsg').textContent = CONN_MSG;
+      $('#staleBanner').style.display='block';
+    } else if(failed > 0){
+      $('#staleHead').textContent = 'Partial update. ';
+      $('#staleMsg').textContent = `${found?found+' bill'+(found===1?'':'s')+' added, ':''}${updated} status${updated===1?'':'es'} updated. Some lookups didn't return — refresh again shortly for the rest.`;
+      $('#staleBanner').style.display='block';
+      setTimeout(()=>{ $('#staleBanner').style.display='none'; }, 15000);
+    } else if(fullRun && gotData){
+      $('#staleHead').textContent = 'Feed updated. ';
+      $('#staleMsg').textContent = `${found?found+' bill'+(found===1?'':'s')+' added, ':''}${updated} status${updated===1?'':'es'} refreshed from ncleg.gov.`;
+      $('#staleBanner').style.display='block';
+      setTimeout(()=>{ $('#staleBanner').style.display='none'; }, 9000);
+    }
+  }
+  render();
+}
+
+/* ================= FILTERING & SORT ================= */
+function stageOrder(v){ return STAGE_RANK[v.stage] ?? 2; }
+
+function applyFilters(views){
+  let out = views;
+  if(filters.quick === 'law') out = out.filter(v=>v.stage==='law');
+  else if(filters.quick === 'active') out = out.filter(v=>ACTIVE_STAGES.has(v.stage));
+  else if(filters.quick === 'stalled') out = out.filter(v=>['stalled','failed','vetoed'].includes(v.stage));
+  else if(filters.quick === 'recent') out = out.filter(isRecent);
+  if(filters.window){
+    const lim = parseInt(filters.window);
+    out = out.filter(v=>{ const d = daysSince(effDate(v)); return d !== null && d <= lim; });
+  }
+  if(filters.chamber) out = out.filter(v=>v.chamber===filters.chamber);
+  if(filters.tags.size) out = out.filter(v=>v.tags.some(t=>filters.tags.has(t)));
+  if(filters.search){
+    const q = filters.search.toLowerCase();
+    out = out.filter(v => (v.id+' '+v.title+' '+(v.summary||'')+' '+v.bullets.map(b=>b.t).join(' ')).toLowerCase().includes(q));
+  }
+  const sort = filters.sort;
+  out = [...out].sort((a,b)=>{
+    if(sort==='activity'){
+      const da = effDate(a)||'', db = effDate(b)||'';
+      if(da!==db) return db.localeCompare(da);
+      return stageOrder(b)-stageOrder(a);
+    }
+    if(sort==='number'){
+      const ca = a.chamber===b.chamber ? 0 : (a.chamber==='House'?-1:1);
+      if(ca) return ca;
+      return parseInt(a.id.slice(1))-parseInt(b.id.slice(1));
+    }
+    if(sort==='stage') return stageOrder(b)-stageOrder(a) || (effDate(b)||'').localeCompare(effDate(a)||'');
+    if(sort==='introduced') return (b.introduced||'').localeCompare(a.introduced||'');
+    return 0;
+  });
+  return out;
+}
+
+/* ================= RENDER ================= */
+function pipelineHtml(v){
+  const dead = ['stalled','failed','vetoed'].includes(v.stage);
+  const r = STAGE_RANK[v.stage] ?? 2;
+  const steps = [
+    true,
+    v.crossover==='YES' || r >= 5,
+    v.stage==='passed_house' || r >= 6 || v.stage==='law',
+    v.stage==='passed_senate' || r >= 6 || v.stage==='law',
+    v.stage==='law'
+  ];
+  let h = '<div class="pipe">';
+  steps.forEach((on,i)=>{
+    let cls = on ? (i===4?'node law-done':'node done') : 'node';
+    if(dead && i===steps.findIndex(s=>!s)) cls = 'node dead';
+    h += `<div class="${cls}"></div>`;
+    if(i<4) h += `<div class="seg ${steps[i]&&steps[i+1]?'done':''}"></div>`;
+  });
+  h += '</div><div class="pipe-labels"><span>Filed</span><span>Crossover</span><span>House</span><span>Senate</span><span>Law</span></div>';
+  return h;
+}
+
+function cardHtml(v){
+  const ed = effDate(v);
+  const d = daysSince(ed);
+  const recent = isRecent(v);
+  const liveData = !!v.lastActionDate;
+  const daysBlock = `<div class="days-box"><div class="days-num ${recent?'hot':''}">${d??'—'}</div><div class="days-lbl">day${d===1?'':'s'} since<br>${liveData?'last action':'introduced'}</div></div>`;
+  const la = `<div class="last-action">
+      <div class="act-label">Last reported activity</div>
+      <div class="act-date ${recent?'hot':''}">${ed?fmtDate(ed):'unknown'}</div>
+      ${liveData
+        ? `<b>${esc(v.lastAction||'Status updated')}</b><div class="la-date">checked ${v.checkedAt?fmtDate(v.checkedAt.slice(0,10)):'—'} · ncleg.gov</div>`
+        : `<b>Bill introduced</b><div class="la-date">no live check yet · 7/14/25 baseline</div>`}
+    </div>`;
+  return `<div class="card ${recent?'recent-glow':''}">
+    ${recent?'<div class="new-flag">Changed this week</div>':''}
+    <div class="card-top">
+      <div>
+        <span class="bill-id"><a href="${billUrl(v.id)}" target="_blank" rel="noopener" title="Open on ncleg.gov">${v.id}</a></span>
+        <span class="chamber-tag">${v.chamber}${v.introduced?' · introduced '+fmtDate(v.introduced):''}</span>
+      </div>
+      <span class="pill ${v.stage}">${STAGE_LABEL[v.stage]||v.stage}</span>
+    </div>
+    <h3>${esc(v.title)}</h3>
+    <ul class="kt">${v.bullets.map((b,i)=>`<li class="${b.p===1?'p1':''} ${i>=5?'hidden-bullet':''}">${esc(b.t)}</li>`).join('')}</ul>
+    ${v.bullets.length>5?`<button class="kt-more" data-n="${v.bullets.length-5}">+ ${v.bullets.length-5} more topics</button>`:''}
+    <div>${pipelineHtml(v)}</div>
+    <div class="tags">${v.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+    <div class="meta">${la}${daysBlock}</div>
+    <div class="card-foot">
+      <span>${v.sessionLaw?`<span class="sl-chip">S.L. ${esc(v.sessionLaw)}</span> `:''}${v.discovered?'<span class="disc-chip">added by live scan</span>':''}</span>
+      <span><a href="${billUrl(v.id)}" target="_blank" rel="noopener">ncleg.gov ↗</a>
+      <button class="recheck" data-id="${v.id}" title="Re-check this bill">↻ check</button></span>
+    </div>
+  </div>`;
+}
+
+function render(){
+  const views = allBills().map(billView);
+  const counts = {
+    all: views.length,
+    law: views.filter(v=>v.stage==='law').length,
+    active: views.filter(v=>ACTIVE_STAGES.has(v.stage)).length,
+    stalled: views.filter(v=>['stalled','failed','vetoed'].includes(v.stage)).length,
+    recent: views.filter(isRecent).length
+  };
+  $('#stats').innerHTML = `
+    <div class="stat s-all ${filters.quick==='all'?'active':''}" data-q="all"><div class="num">${counts.all}</div><div class="lbl">Tracked Bills</div></div>
+    <div class="stat s-law ${filters.quick==='law'?'active':''}" data-q="law"><div class="num">${counts.law}</div><div class="lbl">Enacted</div></div>
+    <div class="stat s-active ${filters.quick==='active'?'active':''}" data-q="active"><div class="num">${counts.active}</div><div class="lbl">Active / Moving</div></div>
+    <div class="stat s-stalled ${filters.quick==='stalled'?'active':''}" data-q="stalled"><div class="num">${counts.stalled}</div><div class="lbl">Stalled / Failed</div></div>
+    <div class="stat s-recent ${filters.quick==='recent'?'active':''}" data-q="recent"><div class="num">${counts.recent}</div><div class="lbl">Changed This Week</div></div>`;
+  document.querySelectorAll('.stat').forEach(el=>el.onclick=()=>{
+    filters.quick = (filters.quick===el.dataset.q) ? 'all' : el.dataset.q; render();
+  });
+
+  // topic chips: priority tags first, then the rest by count
+  const tagCounts = {};
+  views.forEach(v=>v.tags.forEach(t=>tagCounts[t]=(tagCounts[t]||0)+1));
+  const present = Object.keys(tagCounts);
+  const ordered = PRIORITY_TAGS.filter(t=>present.includes(t))
+    .concat(present.filter(t=>!PRIORITY_TAGS.includes(t)).sort((a,b)=>tagCounts[b]-tagCounts[a]));
+  const allOn = ordered.length && ordered.every(t=>filters.tags.has(t));
+  $('#chips').innerHTML =
+    `<button class="chip chip-all" id="chipAll">${allOn?'Deselect all':'Select all'}</button>` +
+    ordered.map(t=>
+      `<button class="chip ${filters.tags.has(t)?'on':''}" data-t="${esc(t)}">${esc(t)}<span class="ct">${tagCounts[t]}</span></button>`).join('');
+  $('#chipAll').onclick = ()=>{
+    filters.tags = allOn ? new Set() : new Set(ordered);
+    render();
+  };
+  document.querySelectorAll('.chip[data-t]').forEach(el=>el.onclick=()=>{
+    const t = el.dataset.t;
+    filters.tags.has(t) ? filters.tags.delete(t) : filters.tags.add(t);
+    render();
+  });
+
+  const shown = applyFilters(views);
+  const windowLbl = filters.window ? { '7':'last 7 days','30':'last 30 days','90':'last 90 days','180':'last 6 months','365':'last 12 months' }[filters.window] : '';
+  $('#resultCount').textContent = `Showing ${shown.length} of ${views.length} bills` +
+    (windowLbl ? ` · activity in ${windowLbl}` : '') +
+    (filters.tags.size && !allOn ? ` · ${filters.tags.size} topic${filters.tags.size>1?'s':''} selected` : '');
+  const hasFilters = filters.search || filters.chamber || filters.tags.size || filters.quick!=='all' || filters.window;
+  $('#clearFilters').style.display = hasFilters ? 'inline' : 'none';
+
+  const feedEmpty = views.length === 0;
+  $('#grid').innerHTML = shown.length
+    ? shown.map(cardHtml).join('')
+    : feedEmpty
+      ? `<div class="empty"><div class="big">Feed loading…</div>If nothing appears, the automatic update may not have run yet — check back shortly, or press <b>Refresh</b>.<br><br><button class="btn btn-gold" id="emptyRefresh">Refresh now</button></div>`
+      : `<div class="empty"><div class="big">No bills match these filters</div>Try widening the activity timeframe or clearing a topic chip.</div>`;
+  const er = document.getElementById('emptyRefresh');
+  if(er) er.onclick = ()=>$('#refreshBtn').click();
+
+  document.querySelectorAll('.kt-more').forEach(el=>el.onclick=()=>{
+    const ul = el.previousElementSibling;
+    const hidden = ul.querySelectorAll('.hidden-bullet');
+    if(hidden.length){ hidden.forEach(li=>li.classList.remove('hidden-bullet')); el.textContent='\u2013 collapse'; }
+    else{ [...ul.children].forEach((li,i)=>{ if(i>=5) li.classList.add('hidden-bullet'); }); el.textContent='+ '+el.dataset.n+' more topics'; }
+  });
+  document.querySelectorAll('.recheck').forEach(el=>el.onclick=()=>{
+    const b = allBills().find(x=>x.id===el.dataset.id);
+    if(b) refreshBills([b]);
+  });
+
+  $('#lastRefreshed').textContent = live.lastRefresh
+    ? (HOSTED ? 'Auto-updated: ' : 'Live feed: ') + new Date(live.lastRefresh).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
+    : (HOSTED ? 'Loading latest feed…' : 'No feed yet — press Refresh & scan');
+}
+
+/* ================= WIRING ================= */
+$('#search').addEventListener('input', e=>{ filters.search = e.target.value.trim(); render(); });
+$('#windowSel').addEventListener('change', e=>{ filters.window = e.target.value; render(); });
+$('#chamberSel').addEventListener('change', e=>{ filters.chamber = e.target.value; render(); });
+$('#sortSel').addEventListener('change', e=>{ filters.sort = e.target.value; render(); });
+$('#clearFilters').addEventListener('click', ()=>{
+  filters = { search:'', chamber:'', tags:new Set(), quick:'all', sort:filters.sort, window:'' };
+  $('#search').value=''; $('#chamberSel').value=''; $('#windowSel').value=''; render();
+});
+$('#refreshBtn').addEventListener('click', async ()=>{
+  if(HOSTED){
+    $('#refreshBtn').disabled = true;
+    const prev = $('#refreshBtn').textContent;
+    $('#refreshBtn').textContent = 'Refreshing…';
+    try{
+      await loadHostedFeed(); render();
+      $('#staleHead').textContent = 'Feed refreshed. ';
+      $('#staleMsg').textContent = 'Loaded the latest automatic update.';
+      $('#staleBanner').style.display='block';
+      setTimeout(()=>{ $('#staleBanner').style.display='none'; }, 6000);
+    }catch(e){
+      $('#staleHead').textContent = '';
+      $('#staleMsg').textContent = CONN_MSG;
+      $('#staleBanner').style.display='block';
+    }
+    $('#refreshBtn').disabled = false;
+    $('#refreshBtn').textContent = prev;
+    return;
+  }
+  refreshBills();
+});
+$('#progCancel').addEventListener('click', ()=>{ cancelRefresh = true; });
+$('#staleRefresh').addEventListener('click', ()=>$('#refreshBtn').click());
+$('#staleDismiss').addEventListener('click', ()=>{ $('#staleBanner').style.display='none'; });
+
+/* ================= INIT ================= */
+(async function init(){
+  await loadStore();
+  render();
+
+  // When hosted (GitHub Pages / opened as a file), always try feed.json first —
+  // it's written by the scheduled GitHub Action, so it's the reliable, auto-updating source.
+  if(HOSTED){
+    try{
+      const r = await loadHostedFeed();
+      render();
+      const gen = r.generatedAt ? new Date(r.generatedAt) : null;
+      const ageH = gen ? (Date.now()-gen.getTime())/3600000 : null;
+      if(ageH !== null && ageH > 30){
+        $('#staleHead').textContent = 'Feed is a little old. ';
+        $('#staleMsg').textContent = `Last automatic update was ${Math.round(ageH/24*10)/10} day(s) ago. It refreshes on a schedule; check back later.`;
+        $('#staleBanner').style.display='block';
+        setTimeout(()=>{ $('#staleBanner').style.display='none'; }, 10000);
+      }
+      return;
+    }catch(e){
+      // feed.json not there yet (first deploy before the Action has run) or empty.
+      if(allBills().length === 0){
+        $('#staleHead').textContent = '';
+        $('#staleMsg').textContent = 'The automatic feed hasn\u2019t been generated yet. It updates on a schedule \u2014 please check back within a few hours. ' + CONN_MSG;
+        $('#staleBanner').style.display='block';
+      }
+      return;
+    }
+  }
+
+  // Inside the Claude chat: no network, manual scan path.
+  if(allBills().length === 0){
+    refreshBills();
+    return;
+  }
+  const ageHrs = live.lastRefresh ? (Date.now()-new Date(live.lastRefresh).getTime())/3600000 : Infinity;
+  if(ageHrs > 24){
+    $('#staleHead').textContent = 'Feed may be out of date. ';
+    $('#staleMsg').textContent = live.lastRefresh
+      ? `Last update was ${Math.floor(ageHrs/24)} day(s) ago — press Refresh & scan for the latest.`
+      : CONN_MSG;
+    $('#staleBanner').style.display='block';
+  }
+})();
+</script>
+</body>
+</html>
