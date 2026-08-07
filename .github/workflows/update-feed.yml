@@ -1,0 +1,42 @@
+name: Update NC legislation feed
+
+# Runs automatically on a schedule, and can be run by hand from the Actions tab.
+on:
+  schedule:
+    # Every 6 hours (minute 15). Times are UTC. Adjust if you like.
+    - cron: "15 */6 * * *"
+  workflow_dispatch: {}   # lets you click "Run workflow" manually
+
+# Allow the workflow to commit the refreshed feed.json back into the repo.
+permissions:
+  contents: write
+
+jobs:
+  build-feed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch bills from ncleg.gov and write feed.json
+        run: python fetch_bills.py --session 2025 --out feed.json
+
+      - name: Commit feed.json if it changed
+        run: |
+          git config user.name  "feed-bot"
+          git config user.email "feed-bot@users.noreply.github.com"
+          git add feed.json
+          if git diff --staged --quiet; then
+            echo "No changes to feed.json."
+          else
+            git commit -m "Auto-update feed.json ($(date -u +%Y-%m-%dT%H:%MZ))"
+            git push
+          fi
