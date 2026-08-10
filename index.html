@@ -159,8 +159,12 @@ select{padding:9px 10px;border:1px solid var(--line);border-radius:7px;backgroun
 .recheck:hover{color:var(--ncblue);background:var(--neutral-bg)}
 .sl-chip{font-family:var(--mono);font-size:10.5px;color:var(--enact);font-weight:600}
 .disc-chip{font-family:var(--mono);font-size:10px;color:var(--teal);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
-.summarize-link{display:block;text-align:center;margin-top:2px;padding:7px 10px;border:1px solid var(--ncblue);border-radius:6px;background:#eef3fa;color:var(--ncblue);font-size:12px;font-weight:600;text-decoration:none;transition:background .12s}
-.summarize-link:hover{background:var(--ncblue);color:#fff}
+.summarize-row{display:flex;gap:6px;margin-top:2px}
+.summarize-link{flex:1;display:block;text-align:center;padding:7px 8px;border-radius:6px;font-size:11.5px;font-weight:600;text-decoration:none;transition:background .12s}
+.summarize-link.claude{border:1px solid var(--ncblue);background:#eef3fa;color:var(--ncblue)}
+.summarize-link.claude:hover{background:var(--ncblue);color:#fff}
+.summarize-link.chatgpt{border:1px solid #10a37f;background:#e6f6f1;color:#0d8c6d}
+.summarize-link.chatgpt:hover{background:#10a37f;color:#fff}
 .empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--ink-faint)}
 .empty .big{font-family:var(--serif);font-size:20px;color:var(--ink-soft);margin-bottom:6px}
 footer{border-top:1px solid var(--line);padding:18px 24px 30px;text-align:center;font-size:11.5px;color:var(--ink-faint)}
@@ -334,6 +338,15 @@ function summarizeLink(v){
   if(!v.pdfUrl) return '';
   const prompt = buildSummaryPrompt(`${v.id} (${v.chamber})`, v.pdfUrl);
   return 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
+}
+function chatGptLink(v){
+  if(!v.pdfUrl) return '';
+  const prompt = buildSummaryPrompt(`${v.id} (${v.chamber})`, v.pdfUrl);
+  // Same idea as the Claude link — prefills a new chat with the prompt.
+  // Unlike Claude, whether ChatGPT actually fetches the linked PDF depends
+  // on the user's plan/browsing settings, so treat this as untested until
+  // verified against a real account.
+  return 'https://chatgpt.com/?q=' + encodeURIComponent(prompt);
 }
 function extractJson(data){
   const text = (data.content||[]).filter(i=>i.type==='text').map(i=>i.text).join('\n');
@@ -675,7 +688,10 @@ function cardHtml(v){
       <span><a href="${billUrl(v.id)}" target="_blank" rel="noopener">ncleg.gov ↗</a>
       <button class="recheck" data-id="${v.id}" title="Re-check this bill">↻ check</button></span>
     </div>
-    ${v.pdfUrl ? `<a class="summarize-link" href="${summarizeLink(v)}" target="_blank" rel="noopener" title="Opens a new Claude.ai chat with this bill's PDF and a scoped summary prompt already filled in">✦ Summarize with Claude</a>` : ''}
+    ${v.pdfUrl ? `<div class="summarize-row">
+      <a class="summarize-link claude" href="${summarizeLink(v)}" target="_blank" rel="noopener" title="Opens a new Claude.ai chat with this bill's PDF and a scoped summary prompt already filled in">✦ Summarize with Claude</a>
+      <a class="summarize-link chatgpt" href="${chatGptLink(v)}" target="_blank" rel="noopener" title="Opens a new ChatGPT chat with this bill's PDF and a scoped summary prompt already filled in — whether it can actually read the PDF depends on your plan/browsing settings">◆ Summarize with ChatGPT</a>
+    </div>` : ''}
   </div>`;
 }
 
