@@ -42,6 +42,7 @@ import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import urljoin
 
 try:
     import requests
@@ -521,7 +522,7 @@ def fetch_bill_detail(session, bid, s):
     if not html:
         return {}
     soup = BeautifulSoup(html, "html.parser")
-    out = {"long_title": "", "short_title": "", "keywords": "",
+    out = {"long_title": "", "short_title": "", "keywords": "", "pdfUrl": None,
            "lastAction": None, "lastActionDate": None, "sessionLaw": None, "stage": None}
 
     # Session law from the <title> tag.
@@ -535,6 +536,9 @@ def fetch_bill_detail(session, bid, s):
     a = soup.find("a", href=re.compile(r"/Bills/.*\.pdf", re.I))
     if a:
         out["short_title"] = a.get_text(" ", strip=True).rstrip(".")
+        href = a.get("href")
+        if href:
+            out["pdfUrl"] = urljoin(BASE, href)
 
     # Label/value pairs (Last Action, Sponsors, Keywords, Statutes, ...).
     labels = {}
@@ -627,6 +631,7 @@ def build(session, keep_all, workers=6):
             "sessionLaw": info.get("sessionLaw"),
             "lastAction": la,
             "lastActionDate": lad,
+            "pdfUrl": info.get("pdfUrl"),
             "introduced": _to_iso(row.get("introduced")),
             "checkedAt": _now_iso(),
             "discovered": True,

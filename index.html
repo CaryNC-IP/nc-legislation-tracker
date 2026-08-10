@@ -159,6 +159,8 @@ select{padding:9px 10px;border:1px solid var(--line);border-radius:7px;backgroun
 .recheck:hover{color:var(--ncblue);background:var(--neutral-bg)}
 .sl-chip{font-family:var(--mono);font-size:10.5px;color:var(--enact);font-weight:600}
 .disc-chip{font-family:var(--mono);font-size:10px;color:var(--teal);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.summarize-link{display:block;text-align:center;margin-top:2px;padding:7px 10px;border:1px solid var(--ncblue);border-radius:6px;background:#eef3fa;color:var(--ncblue);font-size:12px;font-weight:600;text-decoration:none;transition:background .12s}
+.summarize-link:hover{background:var(--ncblue);color:#fff}
 .empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--ink-faint)}
 .empty .big{font-family:var(--serif);font-size:20px;color:var(--ink-soft);margin-bottom:6px}
 footer{border-top:1px solid var(--line);padding:18px 24px 30px;text-align:center;font-size:11.5px;color:var(--ink-faint)}
@@ -303,6 +305,36 @@ function fmtDate(iso){
 }
 function billUrl(id){ return 'https://www.ncleg.gov/BillLookUp/2025/' + id; }
 function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ================= CLAUDE ONE-PAGE SUMMARY LINK ================= */
+// Edit this list in one place if the department's topic scope changes.
+const RELEVANT_TOPICS = 'local building inspections and code enforcement; permits and plan review; '
+  + 'planning and zoning; contractor licensing; code official qualifications and certification; '
+  + 'minimum housing standards; stormwater management; land development regulations; housing and '
+  + 'accessory dwelling units (ADUs); fire code and the Office of State Fire Marshal (OSFM); NC '
+  + 'Department of Labor; utilities and infrastructure; local government authority (including state '
+  + 'preemption of local ordinances); and other development-related provisions';
+
+function buildSummaryPrompt(billLabel, pdfUrl){
+  return `Read the North Carolina legislative bill at ${pdfUrl}.
+
+Summarize ONLY the portions of this bill (${billLabel}) relevant to these topics: ${RELEVANT_TOPICS}.
+
+If the bill contains sections unrelated to these topics (budget items, education, criminal law, unrelated agencies, etc.), leave them out entirely — don't describe what they cover, just exclude them.
+
+Keep the summary to one page or less, in plain language a field inspector without a legal background could follow. Structure it as:
+1. What the relevant provision(s) actually do
+2. Effective date(s)
+3. What changes in practice for inspectors, plan reviewers, planning and zoning staff, development compliance staff, permitting staff, or code officials
+
+If nothing in the bill relates to these topics, say so in one sentence instead of forcing a summary.`;
+}
+
+function summarizeLink(v){
+  if(!v.pdfUrl) return '';
+  const prompt = buildSummaryPrompt(`${v.id} (${v.chamber})`, v.pdfUrl);
+  return 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
+}
 function extractJson(data){
   const text = (data.content||[]).filter(i=>i.type==='text').map(i=>i.text).join('\n');
   const m = text.match(/\[[\s\S]*\]/);
@@ -642,6 +674,7 @@ function cardHtml(v){
       <span><a href="${billUrl(v.id)}" target="_blank" rel="noopener">ncleg.gov ↗</a>
       <button class="recheck" data-id="${v.id}" title="Re-check this bill">↻ check</button></span>
     </div>
+    ${v.pdfUrl ? `<a class="summarize-link" href="${summarizeLink(v)}" target="_blank" rel="noopener" title="Opens a new Claude.ai chat with this bill's PDF and a scoped summary prompt already filled in">✦ Summarize with Claude</a>` : ''}
   </div>`;
 }
 
