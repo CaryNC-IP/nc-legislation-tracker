@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+##!/usr/bin/env python3
 """
 nc_feed_builder.py
 ==================
@@ -726,4 +726,3 @@ def serve(path, port):
 
 if __name__ == "__main__":
     main()
- 
