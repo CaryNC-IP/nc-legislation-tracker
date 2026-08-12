@@ -5,7 +5,12 @@ on:
   schedule:
     # Every 6 hours (minute 15). Times are UTC. Adjust if you like.
     - cron: "15 */6 * * *"
-  workflow_dispatch: {}   # lets you click "Run workflow" manually
+  workflow_dispatch:      # lets you click "Run workflow" manually
+    inputs:
+      test_email:
+        description: "Send a one-off TEST email instead of fetching bills (yes/no)"
+        required: false
+        default: "no"
 
 # Allow the workflow to commit the refreshed feed.json back into the repo.
 permissions:
@@ -27,7 +32,15 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Fetch bills from ncleg.gov and write feed.json
-        run: python fetch_bills.py --session 2025 --out feed.json
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+        run: |
+          if [ "${{ github.event.inputs.test_email }}" = "yes" ]; then
+            python fetch_bills.py --session 2025 --test-email
+          else
+            python fetch_bills.py --session 2025 --out feed.json
+          fi
 
       - name: Commit feed.json if it changed
         run: |
