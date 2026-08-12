@@ -1,4 +1,4 @@
-##!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 nc_feed_builder.py
 ==================
@@ -38,11 +38,11 @@ the two parse points that may need updating are flagged with  # >>> VERIFY  belo
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from urllib.parse import urljoin
 
 try:
     import requests
@@ -522,7 +522,7 @@ def fetch_bill_detail(session, bid, s):
     if not html:
         return {}
     soup = BeautifulSoup(html, "html.parser")
-    out = {"long_title": "", "short_title": "", "keywords": "", "pdfUrl": None,
+    out = {"long_title": "", "short_title": "", "keywords": "",
            "lastAction": None, "lastActionDate": None, "sessionLaw": None, "stage": None}
 
     # Session law from the <title> tag.
@@ -536,9 +536,6 @@ def fetch_bill_detail(session, bid, s):
     a = soup.find("a", href=re.compile(r"/Bills/.*\.pdf", re.I))
     if a:
         out["short_title"] = a.get_text(" ", strip=True).rstrip(".")
-        href = a.get("href")
-        if href:
-            out["pdfUrl"] = urljoin(BASE, href)
 
     # Label/value pairs (Last Action, Sponsors, Keywords, Statutes, ...).
     labels = {}
@@ -631,7 +628,6 @@ def build(session, keep_all, workers=6):
             "sessionLaw": info.get("sessionLaw"),
             "lastAction": la,
             "lastActionDate": lad,
-            "pdfUrl": info.get("pdfUrl"),
             "introduced": _to_iso(row.get("introduced")),
             "checkedAt": _now_iso(),
             "discovered": True,
@@ -655,6 +651,125 @@ def build(session, keep_all, workers=6):
     return bills
 
 
+# ---------------------------------------------------------------------------
+# Email notifications — "a priority-topic bill just became law"
+# ---------------------------------------------------------------------------
+# Scope: the 5 priority topics only (Building Code, Permits & Approvals,
+# Licensing & Qualifications, Inspections & Enforcement, Local Gov. Authority).
+EMAIL_TAGS = set(PRIORITY_TAGS)
+
+
+def load_previous_stages(path):
+    """Read the feed.json that's about to be overwritten, so we can tell which
+    bills are NEWLY enacted this run (as opposed to already-enacted last run)."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        arr = data.get("bills", []) if isinstance(data, dict) else (data or [])
+        return {b["id"]: b.get("stage") for b in arr if isinstance(b, dict) and b.get("id")}
+    except (FileNotFoundError, ValueError, KeyError, TypeError):
+        return {}
+
+
+def find_newly_enacted(bills, prev_stages):
+    """Bills that are law NOW, weren't law last run, and touch a priority topic."""
+    out = []
+    for b in bills:
+        if b.get("stage") != "law":
+            continue
+        if prev_stages.get(b["id"]) == "law":
+            continue   # already notified about this one on a previous run
+        if not (set(b.get("tags", [])) & EMAIL_TAGS):
+            continue
+        out.append(b)
+    return out
+
+
+def _bill_url(session, bid):
+    return f"{BASE}/BillLookUp/{session}/{bid}"
+
+
+def build_email_html(bills, session):
+    rows = []
+    for b in bills:
+        sl = f" — S.L. {b['sessionLaw']}" if b.get("sessionLaw") else ""
+        tags = ", ".join(b.get("tags", []))
+        rows.append(
+            f"<tr><td style='padding:10px 12px;border-bottom:1px solid #e5e5e5'>"
+            f"<a href='{_bill_url(session, b['id'])}' style='font-weight:600;color:#1f4e8c;text-decoration:none'>"
+            f"{b['id']}</a>{sl}<br>"
+            f"<span style='color:#182430'>{b.get('title','')}</span><br>"
+            f"<span style='font-size:12px;color:#8395a3'>{tags}</span>"
+            f"</td></tr>"
+        )
+    plural = "s" if len(bills) != 1 else ""
+    return f"""
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:600px">
+      <h2 style="color:#163a6b;margin-bottom:4px">{len(bills)} bill{plural} newly enacted</h2>
+      <p style="color:#4a5a68;font-size:13px;margin-top:0">
+        Matches your tracked topics: Building Code, Permits &amp; Approvals,
+        Licensing &amp; Qualifications, Inspections &amp; Enforcement, or Local Gov. Authority.
+      </p>
+      <table style="width:100%;border-collapse:collapse">{''.join(rows)}</table>
+      <p style="font-size:11px;color:#8395a3;margin-top:16px">
+        Sent automatically by your NC Legislation Tracker. Verify details on
+        <a href="https://www.ncleg.gov/Legislation">ncleg.gov</a>.
+      </p>
+    </div>"""
+
+
+def send_email(api_key, to_addr, subject, html):
+    """POST to Resend's API. Any failure is printed but never crashes the run —
+    a missed email should never stop the feed from updating."""
+    try:
+        r = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"from": "NC Legislation Tracker <onboarding@resend.dev>",
+                  "to": [to_addr], "subject": subject, "html": html},
+            timeout=20,
+        )
+        if r.status_code >= 300:
+            print(f"  ! email send failed: HTTP {r.status_code} — {r.text[:300]}", file=sys.stderr)
+        else:
+            print(f"  Email sent to {to_addr}.")
+    except requests.RequestException as e:
+        print(f"  ! email send failed: {type(e).__name__}", file=sys.stderr)
+
+
+def maybe_notify(bills, prev_stages, session):
+    """Send an email if any priority-topic bill newly became law this run.
+    Silently does nothing if RESEND_API_KEY / NOTIFY_EMAIL aren't set, so this
+    feature is entirely opt-in — no secrets configured means no email attempts."""
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    to_addr = os.environ.get("NOTIFY_EMAIL", "").strip()
+    if not api_key or not to_addr:
+        return
+    newly = find_newly_enacted(bills, prev_stages)
+    if not newly:
+        print("No newly-enacted priority-topic bills this run; no email sent.")
+        return
+    ids = ", ".join(b["id"] for b in newly)
+    plural = "s" if len(newly) != 1 else ""
+    subject = f"NC Legislation: {len(newly)} bill{plural} newly enacted ({ids})"
+    send_email(api_key, to_addr, subject, build_email_html(newly, session))
+
+
+def send_test_email(session):
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    to_addr = os.environ.get("NOTIFY_EMAIL", "").strip()
+    if not api_key or not to_addr:
+        print("RESEND_API_KEY and/or NOTIFY_EMAIL are not set — nothing to test. "
+              "Add them as repository secrets first.", file=sys.stderr)
+        sys.exit(1)
+    fake = [{"id": "H000", "title": "Test Bill — Email Wiring Check",
+             "tags": ["Building Code"], "sessionLaw": "2025-TEST"}]
+    send_email(api_key, to_addr,
+               "NC Legislation Tracker — test email",
+               build_email_html(fake, session))
+    print("Test email attempted — check the inbox (and spam folder) for", to_addr)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Build feed.json of NC building/permit legislation from ncleg.gov")
     ap.add_argument("--session", default="2025", help="Session year (default 2025)")
@@ -662,14 +777,24 @@ def main():
     ap.add_argument("--all", action="store_true", help="Keep every bill (skip topic filtering)")
     ap.add_argument("--serve", action="store_true", help="After building, serve the file on :8765 with CORS")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--test-email", action="store_true",
+                     help="Send one test email using RESEND_API_KEY / NOTIFY_EMAIL and exit "
+                          "(no fetch, no feed.json changes) — use this to confirm email setup.")
     args = ap.parse_args()
+
+    if args.test_email:
+        send_test_email(args.session)
+        return
+
+    # Read the CURRENT feed (about to be overwritten) so we can tell which bills are
+    # newly enacted this run, as opposed to bills that were already law last time.
+    prev_stages = load_previous_stages(args.out)
 
     print(f"Building feed for {args.session} session from {BASE} …")
     bills = build(args.session, keep_all=args.all)
     if not bills:
         # ncleg.gov unreachable or markup changed. Do NOT overwrite a good existing feed —
         # leave the previous feed.json in place so the site keeps showing the last good data.
-        import os
         if os.path.exists(args.out):
             print("Fetch returned nothing; keeping the existing feed.json unchanged.", file=sys.stderr)
             sys.exit(0)
@@ -684,6 +809,8 @@ def main():
             json.dump(payload, f, ensure_ascii=False, indent=2)
         print("Wrote empty placeholder feed.json.")
         sys.exit(0)
+
+    maybe_notify(bills, prev_stages, args.session)
 
     payload = {
         "generatedAt": _now_iso(),
