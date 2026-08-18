@@ -57,6 +57,9 @@ h1 .amp{color:var(--orange-bright);font-style:italic}
 #staleBanner{display:none;background:var(--orange-bg);border-bottom:1px solid #f3c39e;color:#8a3d08;font-size:13.5px;padding:10px 24px;text-align:center}
 #staleBanner b{font-weight:600}
 #staleBanner button{margin-left:10px;padding:4px 12px;font-size:12.5px}
+#tagDisclosure{background:#eef2f6;border-bottom:1px solid #d7e0e9;color:#3d4a58;font-size:13px;line-height:1.5;padding:10px 0}
+#tagDisclosure .inner{max-width:1180px;margin:0 auto;padding:0 24px;text-align:center}
+#tagDisclosure b{font-weight:600;color:#243040}
 .btn-small-gold{background:var(--orange);color:#fff;border:none;border-radius:5px;font-weight:600}
 .btn-small-plain{background:transparent;border:1px solid #eba36b;border-radius:5px;color:#8a3d08}
 
@@ -69,8 +72,6 @@ h1 .amp{color:var(--orange-bright);font-style:italic}
 
 /* ---------- stats ---------- */
 .stats{max-width:1180px;margin:22px auto 0;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.about-filters{max-width:1180px;margin:14px auto 0;padding:10px 24px;font-size:12.5px;color:var(--ink-soft);line-height:1.5;text-align:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.about-filters a{color:var(--ncblue)}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px 12px;cursor:pointer;transition:border-color .15s,box-shadow .15s;border-top:3px solid var(--ink-faint)}
 .stat:hover{box-shadow:0 2px 8px rgba(24,36,48,.08)}
 .stat.active{border-color:var(--ncblue);box-shadow:0 0 0 2px rgba(31,78,140,.18)}
@@ -88,9 +89,9 @@ h1 .amp{color:var(--orange-bright);font-style:italic}
 #search{flex:1;min-width:220px;padding:9px 13px;border:1px solid var(--line);border-radius:7px;font-size:14px;font-family:var(--sans);background:var(--card);color:var(--ink)}
 #search:focus{outline:2px solid var(--ncblue);outline-offset:-1px}
 select{padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--card);font-size:13.5px;color:var(--ink);font-family:var(--sans)}
-.filter-panel{margin-top:12px;background:var(--orange-bg);border:1px solid #f6d3b6;border-radius:9px;padding:12px 14px}
-.filter-panel-label{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin-bottom:9px}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
+.chips-label{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin-top:16px;margin-bottom:8px}
+.chips-panel{background:var(--orange-bg);border:1px solid #f3d3b6;border-radius:9px;padding:12px 14px}
 .chip{border:1px solid var(--line);background:var(--card);color:var(--ink-soft);border-radius:100px;padding:5px 13px;font-size:12.5px;font-weight:500;transition:all .12s}
 .chip:hover{border-color:var(--ncblue);color:var(--ncblue)}
 .chip.on{background:var(--ncblue);border-color:var(--ncblue);color:#fff}
@@ -163,6 +164,12 @@ select{padding:9px 10px;border:1px solid var(--line);border-radius:7px;backgroun
 .recheck:hover{color:var(--ncblue);background:var(--neutral-bg)}
 .sl-chip{font-family:var(--mono);font-size:10.5px;color:var(--enact);font-weight:600}
 .disc-chip{font-family:var(--mono);font-size:10px;color:var(--teal);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.summarize-row{display:flex;gap:6px;margin-top:2px}
+.summarize-link{flex:1;display:block;text-align:center;padding:7px 8px;border-radius:6px;font-size:11.5px;font-weight:600;text-decoration:none;transition:background .12s}
+.summarize-link.claude{border:1px solid var(--ncblue);background:#eef3fa;color:var(--ncblue)}
+.summarize-link.claude:hover{background:var(--ncblue);color:#fff}
+.summarize-link.chatgpt{border:1px solid #10a37f;background:#e6f6f1;color:#0d8c6d}
+.summarize-link.chatgpt:hover{background:#10a37f;color:#fff}
 .empty{grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--ink-faint)}
 .empty .big{font-family:var(--serif);font-size:20px;color:var(--ink-soft);margin-bottom:6px}
 footer{border-top:1px solid var(--line);padding:18px 24px 30px;text-align:center;font-size:11.5px;color:var(--ink-faint)}
@@ -172,7 +179,7 @@ footer a{color:var(--ink-soft)}
   h1{font-size:23px}
   .head-meta{text-align:left}
   .refresh-row{justify-content:flex-start}
-  .grid,.stats,.filters,.result-line,.about-filters{padding-left:16px;padding-right:16px}
+  .grid,.stats,.filters,.result-line{padding-left:16px;padding-right:16px}
   .grid{grid-template-columns:1fr}
 }
 </style>
@@ -211,12 +218,10 @@ footer a{color:var(--ink-soft)}
 
 <div class="stats" id="stats"></div>
 
-<div class="about-filters">
-  <b>About the topic filters:</b> Categories reflect the tags the NC General Assembly's own bill-drafting system
-  attaches to each bill — they aren't independently verified by this tool. Tagging can be incomplete or inconsistent,
-  so a bill relevant to inspections, permits, or code enforcement may not always appear under the expected topic.
-  Pair the filters with the search box, and confirm anything critical directly on
-  <a href="https://www.ncleg.gov/Legislation" target="_blank" rel="noopener">ncleg.gov</a>.
+<div id="tagDisclosure">
+  <div class="inner">
+    <b>About the topic filters:</b> Categories reflect the tags the NC General Assembly's own bill-drafting system attaches to each bill — they aren't independently verified by this tool. Tagging can be incomplete or inconsistent, so a bill relevant to inspections, permits, or code enforcement may not always appear under the expected topic. Pair the filters with the search box, and confirm anything critical directly on <a href="https://www.ncleg.gov/Legislation" target="_blank" rel="noopener">ncleg.gov</a>.
+  </div>
 </div>
 
 <div class="filters">
@@ -242,8 +247,8 @@ footer a{color:var(--ink-soft)}
       <option value="introduced">Sort: date introduced</option>
     </select>
   </div>
-  <div class="filter-panel">
-    <div class="filter-panel-label">Filters:</div>
+  <div class="chips-label">Filters</div>
+  <div class="chips-panel">
     <div class="chips" id="chips"></div>
   </div>
 </div>
@@ -318,6 +323,45 @@ function fmtDate(iso){
 }
 function billUrl(id){ return 'https://www.ncleg.gov/BillLookUp/2025/' + id; }
 function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ================= CLAUDE ONE-PAGE SUMMARY LINK ================= */
+// Edit this list in one place if the department's topic scope changes.
+const RELEVANT_TOPICS = 'local building inspections and code enforcement; permits and plan review; '
+  + 'planning and zoning; contractor licensing; code official qualifications and certification; '
+  + 'minimum housing standards; stormwater management; land development regulations; housing and '
+  + 'accessory dwelling units (ADUs); fire code and the Office of State Fire Marshal (OSFM); NC '
+  + 'Department of Labor; utilities and infrastructure; local government authority (including state '
+  + 'preemption of local ordinances); and other development-related provisions';
+
+function buildSummaryPrompt(billLabel, pdfUrl){
+  return `Read the North Carolina legislative bill at ${pdfUrl}.
+
+Summarize ONLY the portions of this bill (${billLabel}) relevant to these topics: ${RELEVANT_TOPICS}.
+
+If the bill contains sections unrelated to these topics (budget items, education, criminal law, unrelated agencies, etc.), leave them out entirely — don't describe what they cover, just exclude them.
+
+Keep the summary to one page or less, in plain language a field inspector without a legal background could follow. Structure it as:
+1. What the relevant provision(s) actually do
+2. Effective date(s)
+3. What changes in practice for inspectors, plan reviewers, planning and zoning staff, development compliance staff, permitting staff, or code officials
+
+If nothing in the bill relates to these topics, say so in one sentence instead of forcing a summary.`;
+}
+
+function summarizeLink(v){
+  if(!v.pdfUrl) return '';
+  const prompt = buildSummaryPrompt(`${v.id} (${v.chamber})`, v.pdfUrl);
+  return 'https://claude.ai/new?q=' + encodeURIComponent(prompt);
+}
+function chatGptLink(v){
+  if(!v.pdfUrl) return '';
+  const prompt = buildSummaryPrompt(`${v.id} (${v.chamber})`, v.pdfUrl);
+  // Same idea as the Claude link — prefills a new chat with the prompt.
+  // Unlike Claude, whether ChatGPT actually fetches the linked PDF depends
+  // on the user's plan/browsing settings, so treat this as untested until
+  // verified against a real account.
+  return 'https://chatgpt.com/?q=' + encodeURIComponent(prompt);
+}
 function extractJson(data){
   const text = (data.content||[]).filter(i=>i.type==='text').map(i=>i.text).join('\n');
   const m = text.match(/\[[\s\S]*\]/);
@@ -391,6 +435,7 @@ function normalizeFeedBill(r){
     discovered: true,
     lastAction: r.lastAction || null,
     lastActionDate: /^\d{4}-\d{2}-\d{2}$/.test(r.lastActionDate||'') ? r.lastActionDate : null,
+    pdfUrl: r.pdfUrl || null,
     checkedAt: r.checkedAt || new Date().toISOString()
   };
 }
@@ -657,6 +702,10 @@ function cardHtml(v){
       <span><a href="${billUrl(v.id)}" target="_blank" rel="noopener">ncleg.gov ↗</a>
       <button class="recheck" data-id="${v.id}" title="Re-check this bill">↻ check</button></span>
     </div>
+    ${v.pdfUrl ? `<div class="summarize-row">
+      <a class="summarize-link claude" href="${summarizeLink(v)}" target="_blank" rel="noopener" title="Opens a new Claude.ai chat with this bill's PDF and a scoped summary prompt already filled in">✦ Summarize with Claude</a>
+      <a class="summarize-link chatgpt" href="${chatGptLink(v)}" target="_blank" rel="noopener" title="Opens a new ChatGPT chat with this bill's PDF and a scoped summary prompt already filled in — whether it can actually read the PDF depends on your plan/browsing settings">◆ Summarize with ChatGPT</a>
+    </div>` : ''}
   </div>`;
 }
 
